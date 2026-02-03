@@ -1,10 +1,8 @@
 import { NewsAPIResponse, NewsAPIArticle, COUNTRIES } from '@/types';
+import { fetchCurrentsNews } from './currentsapi';
 
 const NEWS_API_KEY = process.env.NEWS_API_KEY!;
 const NEWS_API_BASE_URL = 'https://newsapi.org/v2';
-
-// Indian news sources for better India coverage
-const INDIA_SOURCES = 'the-times-of-india,the-hindu,google-news-in';
 
 interface FetchNewsOptions {
   category?: string;
@@ -34,11 +32,8 @@ export async function fetchTopHeadlines(
     page = 1,
   } = options;
 
-  // Use top-headlines endpoint for supported countries (works on free tier)
-  // NewsAPI free tier supports: us, in, gb, au, ca, etc.
-  const topHeadlinesCountries = ['us', 'in', 'gb', 'au', 'ca', 'de', 'fr'];
-
-  if (topHeadlinesCountries.includes(country)) {
+  // For US, use NewsAPI (works well on free tier)
+  if (country === 'us') {
     const params = new URLSearchParams({
       country,
       category,
@@ -49,7 +44,6 @@ export async function fetchTopHeadlines(
 
     try {
       const response = await fetch(`${NEWS_API_BASE_URL}/top-headlines?${params}`, {
-        next: { revalidate: 1800 },
         cache: 'no-store',
       });
 
@@ -67,6 +61,17 @@ export async function fetchTopHeadlines(
       console.error('Error fetching headlines:', error);
       return [];
     }
+  }
+
+  // For all other countries, use CurrentsAPI (better international support)
+  try {
+    const articles = await fetchCurrentsNews(country, category, pageSize);
+    return articles.filter(
+      (article) => article.title && article.title !== '[Removed]'
+    );
+  } catch (error) {
+    console.error('Error fetching from CurrentsAPI:', error);
+    // Fall through to NewsAPI everything endpoint as backup
   }
 
   // For other countries, use the "everything" endpoint with search terms
