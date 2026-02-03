@@ -3,6 +3,9 @@ import { NewsAPIResponse, NewsAPIArticle, COUNTRIES } from '@/types';
 const NEWS_API_KEY = process.env.NEWS_API_KEY!;
 const NEWS_API_BASE_URL = 'https://newsapi.org/v2';
 
+// Indian news sources for better India coverage
+const INDIA_SOURCES = 'the-times-of-india,the-hindu,google-news-in';
+
 interface FetchNewsOptions {
   category?: string;
   country?: string;
@@ -31,8 +34,11 @@ export async function fetchTopHeadlines(
     page = 1,
   } = options;
 
-  // For US, use the top-headlines endpoint (works on free tier)
-  if (country === 'us') {
+  // Use top-headlines endpoint for supported countries (works on free tier)
+  // NewsAPI free tier supports: us, in, gb, au, ca, etc.
+  const topHeadlinesCountries = ['us', 'in', 'gb', 'au', 'ca', 'de', 'fr'];
+
+  if (topHeadlinesCountries.includes(country)) {
     const params = new URLSearchParams({
       country,
       category,
@@ -44,6 +50,7 @@ export async function fetchTopHeadlines(
     try {
       const response = await fetch(`${NEWS_API_BASE_URL}/top-headlines?${params}`, {
         next: { revalidate: 1800 },
+        cache: 'no-store',
       });
 
       if (!response.ok) {
