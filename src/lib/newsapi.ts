@@ -66,15 +66,17 @@ export async function fetchTopHeadlines(
   // For all other countries, use CurrentsAPI (better international support)
   try {
     const articles = await fetchCurrentsNews(country, category, pageSize);
-    return articles.filter(
-      (article) => article.title && article.title !== '[Removed]'
-    );
+    if (articles.length > 0) {
+      return articles.filter(
+        (article) => article.title && article.title !== '[Removed]'
+      );
+    }
+    console.log('CurrentsAPI returned no articles, trying NewsAPI fallback');
   } catch (error) {
     console.error('Error fetching from CurrentsAPI:', error);
-    // Fall through to NewsAPI everything endpoint as backup
   }
 
-  // For other countries, use the "everything" endpoint with search terms
+  // Fallback: For other countries, use the "everything" endpoint with search terms
   const countryInfo = COUNTRIES.find((c) => c.code === country);
   const countryName = countryInfo?.name || country.toUpperCase();
   const categoryKeywords = CATEGORY_KEYWORDS[category] || '';

@@ -49,6 +49,12 @@ export async function fetchCurrentsNews(
   category: string = 'general',
   pageSize: number = 20
 ): Promise<NewsAPIArticle[]> {
+  // Check if API key is configured
+  if (!CURRENTS_API_KEY) {
+    console.error('CURRENTS_API_KEY is not configured');
+    return [];
+  }
+
   const regionCode = COUNTRY_MAP[country] || country.toUpperCase();
   const categoryParam = CATEGORY_MAP[category] || 'general';
 
@@ -59,20 +65,24 @@ export async function fetchCurrentsNews(
     language: 'en',
   });
 
+  console.log(`Fetching CurrentsAPI: country=${regionCode}, category=${categoryParam}`);
+
   try {
     const response = await fetch(`${CURRENTS_API_BASE_URL}/latest-news?${params}`, {
       cache: 'no-store',
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      console.error('CurrentsAPI error:', error);
-      throw new Error(error.message || 'Failed to fetch news from CurrentsAPI');
+      const errorText = await response.text();
+      console.error('CurrentsAPI error response:', errorText);
+      throw new Error('Failed to fetch news from CurrentsAPI');
     }
 
     const data: CurrentsAPIResponse = await response.json();
+    console.log(`CurrentsAPI returned ${data.news?.length || 0} articles`);
 
     if (data.status !== 'ok' || !data.news) {
+      console.error('CurrentsAPI status not ok:', data.status);
       return [];
     }
 
