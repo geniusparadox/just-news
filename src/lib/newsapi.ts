@@ -76,12 +76,18 @@ export async function fetchTopHeadlines(
     searchQuery = `(${categoryKeywords}) AND "${countryName}"`;
   }
 
+  // Get articles from last 2 days only
+  const fromDate = new Date();
+  fromDate.setDate(fromDate.getDate() - 2);
+  const fromDateStr = fromDate.toISOString().split('T')[0];
+
   const params = new URLSearchParams({
     q: searchQuery,
     pageSize: pageSize.toString(),
     page: page.toString(),
-    sortBy: 'relevancy',
+    sortBy: 'publishedAt',
     language: 'en',
+    from: fromDateStr,
     apiKey: NEWS_API_KEY,
   });
 
