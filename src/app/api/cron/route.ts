@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchTopHeadlines, transformToArticle } from '@/lib/newsapi';
-import { saveArticle, getUnprocessedArticles, updateArticleFacts } from '@/lib/supabase';
+import { saveArticle, getUnprocessedArticles, updateArticleFacts, deleteArticlesByCategory } from '@/lib/supabase';
 import { extractFacts } from '@/lib/claude';
-import { CATEGORIES } from '@/types';
+import { CATEGORIES, COUNTRIES } from '@/types';
 
 // This endpoint is designed to be called by a cron job (e.g., Vercel Cron)
 // It fetches new articles and processes them for fact extraction
@@ -23,24 +23,32 @@ export async function GET(request: NextRequest) {
   };
 
   try {
-    // Step 1: Fetch new articles from all categories
-    for (const category of CATEGORIES) {
-      try {
-        const articles = await fetchTopHeadlines({
-          category: category.slug,
-          pageSize: 10,
-        });
+    // Step 1: Fetch new articles for all categories and countries
+    const countries = ['us', 'in', 'gb']; // Main countries to refresh
 
-        for (const article of articles) {
-          const transformed = transformToArticle(article, category.slug);
-          const saved = await saveArticle(transformed);
-          if (saved) results.fetched++;
+    for (const country of countries) {
+      for (const category of CATEGORIES) {
+        try {
+          // Delete old articles first
+          await deleteArticlesByCategory(category.slug, country);
+
+          const articles = await fetchTopHeadlines({
+            category: category.slug,
+            country,
+            pageSize: 10,
+          });
+
+          for (const article of articles) {
+            const transformed = transformToArticle(article, category.slug, country);
+            const saved = await saveArticle(transformed);
+            if (saved) results.fetched++;
+          }
+
+          // Rate limit protection
+          await new Promise((resolve) => setTimeout(resolve, 300));
+        } catch (err) {
+          results.errors.push(`Fetch error for ${category.slug}/${country}: ${err}`);
         }
-
-        // Rate limit protection
-        await new Promise((resolve) => setTimeout(resolve, 300));
-      } catch (err) {
-        results.errors.push(`Fetch error for ${category.slug}: ${err}`);
       }
     }
 

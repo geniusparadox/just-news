@@ -3,6 +3,21 @@ import { fetchTopHeadlines, transformToArticle } from '@/lib/newsapi';
 import { saveArticle, getArticles, deleteArticlesByCategory } from '@/lib/supabase';
 import { CATEGORIES } from '@/types';
 
+// Auto-refresh if articles are older than 2 hours
+const STALE_THRESHOLD_MS = 2 * 60 * 60 * 1000;
+
+function isStale(articles: { created_at?: string }[]): boolean {
+  if (articles.length === 0) return true;
+
+  const mostRecent = articles[0]?.created_at;
+  if (!mostRecent) return true;
+
+  const articleTime = new Date(mostRecent).getTime();
+  const now = Date.now();
+
+  return (now - articleTime) > STALE_THRESHOLD_MS;
+}
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const category = searchParams.get('category') || 'general';
@@ -13,8 +28,15 @@ export async function GET(request: NextRequest) {
     // If not forcing refresh, try to get from database first
     if (!refresh) {
       const cachedArticles = await getArticles(category, 20, country);
-      if (cachedArticles.length > 0) {
+
+      // Return cached articles only if they exist and are not stale
+      if (cachedArticles.length > 0 && !isStale(cachedArticles)) {
         return NextResponse.json({ articles: cachedArticles, cached: true });
+      }
+
+      // If stale, delete old articles before fetching new ones
+      if (cachedArticles.length > 0) {
+        await deleteArticlesByCategory(category, country);
       }
     }
 
